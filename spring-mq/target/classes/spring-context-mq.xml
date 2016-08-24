@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns="http://www.springframework.org/schema/beans" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:jms="http://www.springframework.org/schema/jms" xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans-4.0.xsd  
+                        http://www.springframework.org/schema/context
+                        http://www.springframework.org/schema/context/spring-context-4.0.xsd
+				        http://www.springframework.org/schema/jms
+				        http://www.springframework.org/schema/jms/spring-jms-4.0.xsd
+				        http://www.springframework.org/schema/tx 
+				        http://www.springframework.org/schema/tx/spring-tx-4.0.xsd" >
+	
+	<context:component-scan base-package="net.lbtech.mq"></context:component-scan>
+	<context:property-placeholder ignore-unresolvable="true" location="classpath*:mq.properties"/>
+	
+	<!-- 真正可以产生Connection的ConnectionFactory，由对应的 JMS服务厂商提供-->  
+	<bean  id="targetConnectionFactory" class="org.apache.activemq.spring.ActiveMQConnectionFactory">
+		<property name="brokerURL" value="${mq.brokerURL}" />
+		<property name="userName" value="${mq.userName}" />
+		<property name="password" value="${mq.password}" />
+	</bean>
+	<bean id="pooledConnectionFactory" class="org.apache.activemq.pool.PooledConnectionFactory">  
+	    <property name="connectionFactory" ref="targetConnectionFactory"/>  
+	    <property name="maxConnections" value="${mq.maxConnections}"/>  
+	</bean>  
+	<!-- 事务管理器 -->
+	<bean id="jmsTransactionManager" class="org.springframework.jms.connection.JmsTransactionManager">
+		<property name="connectionFactory" ref="pooledConnectionFactory"/>
+	</bean>
+	<bean id="jmsQueueTemplate" class="org.springframework.jms.core.JmsTemplate">
+		<description>队列模式模型</description>
+		<constructor-arg ref="pooledConnectionFactory" />
+		<property name="receiveTimeout" value="${mq.receiveTimeout}" />
+		<!-- 非pub/sub模型（发布/订阅），即队列模式 -->
+        <property name="pubSubDomain" value="false" />
+	</bean>
+	<bean id="jmsTopicTemplate" class="org.springframework.jms.core.JmsTemplate">
+		<description>发布/订阅模式模型</description>
+		<constructor-arg ref="pooledConnectionFactory" />
+		<property name="receiveTimeout" value="${mq.receiveTimeout}" />
+		 <!-- pub/sub模型（发布/订阅） -->
+        <property name="pubSubDomain" value="true" />
+	</bean>
+	
+	 <!-- 消息消费者 start-->
+    <!-- 定义Queue监听器
+       container-type 类型可以决定线程数 默认即可
+      acknowledge 为消息确认模式 没有事务的时候 选择auto  有事务采用transacted -->
+    <jms:listener-container destination-type="queue" container-type="default" transaction-manager="jmsTransactionManager"
+    connection-factory="pooledConnectionFactory" acknowledge="transacted">
+        <jms:listener destination="test.queue" ref="queueListener"/>
+    </jms:listener-container>
+    <!-- 定义Topic监听器 -->
+    <jms:listener-container destination-type="topic" container-type="default" transaction-manager="jmsTransactionManager"
+     connection-factory="pooledConnectionFactory" acknowledge="transacted">
+        <jms:listener destination="test.topic" ref="topicListener"/>
+    </jms:listener-container>
+    <!-- 消息消费者 end -->
+   <tx:annotation-driven proxy-target-class="true"/>
+</beans>
