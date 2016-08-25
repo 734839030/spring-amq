@@ -53,7 +53,7 @@
     </jms:listener-container>
     <!-- 定义Topic监听器 -->
     <jms:listener-container destination-type="topic" container-type="default" transaction-manager="jmsTransactionManager"
-     connection-factory="pooledConnectionFactory" acknowledge="transacted">
+     connection-factory="pooledConnectionFactory" acknowledge="transacted" >
         <jms:listener destination="test.topic" ref="topicListener"/>
     </jms:listener-container>
     <!-- 消息消费者 end -->
